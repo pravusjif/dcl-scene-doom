@@ -43,40 +43,6 @@ npm install
 npm start
 ```
 
-This launches the Decentraland scene preview at `http://localhost:8000`.
-
-### Build
-
-```bash
-npm run build
-```
-
-### Deploy
-
-```bash
-npm run deploy
-```
-
-## Project Structure
-
-```
-src/
-  index.ts              Entry point
-  doom-ui.tsx            React-ECS renderer (all visual output)
-  doom/
-    game.ts             Game loop, state management, system registration
-    raycaster.ts        DDA wall raycasting
-    enemies.ts          Enemy spawning, AI, sprite casting, hitscan
-    map.ts              24x24 tile map with wall colors and fog
-    doors.ts            Door state machine
-    player.ts           Movement and collision
-    input.ts            Input reading and camera sync
-    types.ts            All shared types and interfaces
-docs/
-  doom-architecture.md  Detailed architecture and rendering docs
-  sdk7-gotchas.md       DCL SDK7 pitfalls and workarounds
-```
-
 ## Technical Details
 
 - **Viewport:** 1920x960 pixels, 80 ray columns at 24px each
