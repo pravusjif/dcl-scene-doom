@@ -15,7 +15,7 @@ const MINIMAP_PADDING = 8
 const Z_OVERLAY = 9999
 
 export function setupDoomUi(): void {
-  ReactEcsRenderer.setUiRenderer(doomRenderer)
+  ReactEcsRenderer.setUiRenderer(doomRenderer, { virtualWidth: 1920, virtualHeight: 1080 })
 }
 
 function doomRenderer() {
