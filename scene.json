@@ -1,0 +1,27 @@
+{
+  "ecs7": true,
+  "runtimeVersion": "7",
+  "display": {
+    "title": "DOOM-Like DDA Raycast rendering",
+    "description": "DOOM-Like DDA Raycast rendering",
+    "navmapThumbnail": "images/scene-thumbnail.png",
+    "favicon": "favicon_asset"
+  },
+  "owner": "",
+  "contact": {
+    "name": "SDK",
+    "email": ""
+  },
+  "main": "bin/index.js",
+  "tags": [],
+  "scene": {
+    "parcels": [
+      "0,0"
+    ],
+    "base": "0,0"
+  },
+  "featureToggles": {
+    "voiceChat": "enabled",
+    "portableExperiences": "enabled"
+  }
+}
