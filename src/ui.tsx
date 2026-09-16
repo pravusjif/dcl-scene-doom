@@ -1,6 +1,7 @@
 import { Color4 } from '@dcl/sdk/math'
 import ReactEcs, { Label, ReactEcsRenderer, UiEntity } from '@dcl/sdk/react-ecs'
 
+import { arcade, leaveCabinet } from './cabinet'
 import { CELL_OPTIONS, settings } from './settings'
 import { PANEL_H, PANEL_LEFT, PANEL_TOP, PANEL_W } from './layout'
 
@@ -8,18 +9,19 @@ const WHITE = Color4.White()
 const PANEL_BG = Color4.create(0, 0, 0, 0.7)
 const BTN_ON = Color4.create(0.8, 0.2, 0.2, 1)
 const BTN_OFF = Color4.create(0.25, 0.25, 0.25, 0.95)
+const BTN_LEAVE = Color4.create(0.45, 0.1, 0.1, 0.95)
 const HINT = Color4.create(0.8, 0.8, 0.8, 1)
 const STATUS = Color4.create(1, 0.85, 0.6, 1)
 
 const CONTROLS =
   'W/S move   A/D strafe   mouse turn   click fire   E/Space use (doors, switches)   ' +
-  'F Enter   4 menu (Esc)   1-3 weapons   Shift run   |   hold right-click for a cursor to use the settings'
+  'F Enter   4 menu (Esc)   1-3 weapons   Shift run   |   hold right-click for a cursor to use the settings or leave'
 
-function Button(props: { key?: string | number; label: string; active: boolean; onClick: () => void }) {
+function Button(props: { key?: string | number; label: string; active: boolean; color?: Color4; onClick: () => void }) {
   return (
     <UiEntity
       uiTransform={{ width: 110, height: 30, margin: { right: 6 }, justifyContent: 'center', alignItems: 'center' }}
-      uiBackground={{ color: props.active ? BTN_ON : BTN_OFF }}
+      uiBackground={{ color: props.active ? BTN_ON : props.color ?? BTN_OFF }}
       onMouseDown={props.onClick}
     >
       <Label value={props.label} fontSize={15} color={WHITE} />
@@ -58,6 +60,8 @@ function SettingsPanel() {
           {CELL_OPTIONS.map((c) => (
             <Button key={c} label={String(c)} active={settings.cells === c} onClick={() => (settings.cells = c)} />
           ))}
+          <Caption text="" />
+          <Button label="Leave cabinet" active={false} color={BTN_LEAVE} onClick={leaveCabinet} />
         </UiEntity>
         <Label
           value={settings.status}
@@ -89,13 +93,18 @@ function ControlsStrip() {
   )
 }
 
-const uiRoot = () => (
-  <UiEntity uiTransform={{ width: '100%', height: '100%', positionType: 'absolute', position: { top: 0, left: 0 } }}>
-    <SettingsPanel />
-    <ControlsStrip />
-  </UiEntity>
-)
+// Nothing is drawn until the screen has grown out of the cabinet (the presenters hide themselves too, see
+// src/index.ts).
+const uiRoot = () => {
+  if (!arcade.screenOn) return null
+  return (
+    <UiEntity uiTransform={{ width: '100%', height: '100%', positionType: 'absolute', position: { top: 0, left: 0 } }}>
+      <SettingsPanel />
+      <ControlsStrip />
+    </UiEntity>
+  )
+}
 
 export function setupUi() {
-  ReactEcsRenderer.setUiRenderer(uiRoot, { virtualWidth: 1920, virtualHeight: 1080 })
+  ReactEcsRenderer.setUiRenderer(uiRoot)
 }

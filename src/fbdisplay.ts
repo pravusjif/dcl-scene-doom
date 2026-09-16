@@ -81,6 +81,22 @@ export class FbDisplay {
     this.growPool(Math.min(opts.maxRects, 512))
   }
 
+  /** Parent the panel to a UI container; positions are then relative to it (canvas pixels). */
+  attachTo(parent: Entity) {
+    UiTransform.getMutable(this.root).parent = parent
+  }
+
+  /** Move the panel without touching the slots (they are positioned relative to the root). */
+  setOrigin(left: number, top: number) {
+    const o = this.opts
+    if (left === o.panelLeft && top === o.panelTop) return
+    o.panelLeft = left
+    o.panelTop = top
+    const t = UiTransform.getMutable(this.root)
+    t.positionLeft = left
+    t.positionTop = top
+  }
+
   setVisible(v: boolean) {
     UiTransform.getMutable(this.root).display = v ? YGDisplay.YGD_FLEX : YGDisplay.YGD_NONE
     if (!v) {

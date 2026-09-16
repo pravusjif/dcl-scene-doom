@@ -1,11 +1,26 @@
 // DOOM inside a Decentraland scene.
 //
-// The real doomgeneric engine (compiled to plain JavaScript, see engine/) runs every scene tick. Its output is
-// presented either as a downsampled pixel grid ('pixels') or as DOOM's own draw calls turned into textured UI
-// rectangles ('textured'); the on-screen panel toggles between them and picks the pixel-grid budget.
+// The real doomgeneric engine (compiled to plain JavaScript, see engine/) runs every scene tick while the player
+// is at the arcade cabinet (src/cabinet.ts). Its output is presented either as a downsampled pixel grid
+// ('pixels') or as DOOM's own draw calls turned into textured UI rectangles ('textured'); the on-screen panel
+// toggles between them and picks the pixel-grid budget.
 
-import { engine, executeTask, InputModifier, PointerLock, PrimaryPointerInfo } from '@dcl/sdk/ecs'
+import {
+  BackgroundTextureMode,
+  engine,
+  Entity,
+  executeTask,
+  PrimaryPointerInfo,
+  UiBackground,
+  UiTransform,
+  YGDisplay,
+  YGOverflow,
+  YGPositionType,
+  YGUnit
+} from '@dcl/sdk/ecs'
+import { Color4 } from '@dcl/sdk/math'
 
+import { arcade, setupCabinet } from './cabinet'
 import { DoomInput } from './engine/input'
 import { DoomSource } from './engine/doom'
 import { RecordView } from './engine/recordview'
@@ -41,6 +56,61 @@ const statusBar = new FbDisplay({
 const SBAR_RECT = { x: 0, y: SBAR_Y, w: 320, h: 200 - SBAR_Y }
 const texturedView = new RecordView(PANEL_LEFT, PANEL_TOP, SCALE, true)
 
+// ---- screen window ----
+// The presenters live inside one clipping container. When the player sits down it grows from the centre of the
+// panel to full size while the presenters slide the opposite way, so the picture stays put and is revealed like
+// a screen switching on. Presenter positions are relative to this container; at full size it is the panel.
+const APPEAR_S = 0.7
+const screenClip = engine.addEntity()
+UiTransform.create(screenClip, {
+  parent: 0 as Entity,
+  positionType: YGPositionType.YGPT_ABSOLUTE,
+  positionLeft: PANEL_LEFT,
+  positionLeftUnit: YGUnit.YGU_POINT,
+  positionTop: PANEL_TOP,
+  positionTopUnit: YGUnit.YGU_POINT,
+  width: PANEL_W,
+  widthUnit: YGUnit.YGU_POINT,
+  height: PANEL_H,
+  heightUnit: YGUnit.YGU_POINT,
+  overflow: YGOverflow.YGO_HIDDEN,
+  display: YGDisplay.YGD_NONE
+} as any)
+UiBackground.create(screenClip, { color: Color4.create(0, 0, 0, 1), textureMode: BackgroundTextureMode.STRETCH, uvs: [] })
+pixelDisplay.attachTo(screenClip)
+statusBar.attachTo(screenClip)
+texturedView.attachTo(screenClip)
+/** Progress of the screen-on animation, 0..APPEAR_S; APPEAR_S once fully open. */
+let appearT = APPEAR_S
+
+function easeOutCubic(x: number) {
+  return 1 - Math.pow(1 - x, 3)
+}
+
+/** Size the window to `f` (0..1) of the panel around its centre and keep the presenters on the panel. */
+function setWindow(f: number) {
+  const s = uiScale()
+  const w = PANEL_W * s * f
+  const h = PANEL_H * s * f
+  const left = (PANEL_LEFT + PANEL_W / 2) * s - w / 2
+  const top = (PANEL_TOP + PANEL_H / 2) * s - h / 2
+  const t = UiTransform.getMutable(screenClip)
+  t.positionLeft = left
+  t.positionTop = top
+  t.width = w
+  t.height = h
+  pixelDisplay.setOrigin(PANEL_LEFT * s - left, PANEL_TOP * s - top)
+  statusBar.setOrigin(PANEL_LEFT * s - left, (PANEL_TOP + SBAR_Y * SCALE) * s - top)
+  texturedView.setOrigin(PANEL_LEFT * s - left, PANEL_TOP * s - top)
+}
+
+function animateWindow(dt: number) {
+  if (appearT >= APPEAR_S) return
+  appearT = Math.min(APPEAR_S, appearT + dt)
+  setWindow(easeOutCubic(appearT / APPEAR_S))
+  if (appearT >= APPEAR_S) arcade.screenOn = true
+}
+
 // ---- engine ----
 let doom: DoomSource | null = null
 const input = new DoomInput()
@@ -55,7 +125,6 @@ executeTask(async () => {
 })
 
 // ---- per-tick state ----
-let locked = false
 let appliedRenderer: string | null = null
 let appliedCells = 0
 let appliedDetail: boolean | null = null
@@ -66,12 +135,25 @@ let ticks = 0
 let presented = 0
 let lastReport = Date.now()
 
-function lockPlayer() {
-  // Deferred to the first tick: engine.PlayerEntity is not ready inside main().
-  InputModifier.createOrReplace(engine.PlayerEntity, { mode: InputModifier.Mode.Standard({ disableAll: true }) })
-  const lock = PointerLock.getMutableOrNull(engine.CameraEntity) ?? PointerLock.create(engine.CameraEntity)
-  lock.isPointerLocked = true
-  locked = true
+function showPresenters() {
+  // Forces applySettings to re-show the presenter for the current renderer on the next tick.
+  appliedRenderer = null
+  appearT = 0
+  setWindow(0)
+  UiTransform.getMutable(screenClip).display = YGDisplay.YGD_FLEX
+  accum = 0
+  ticks = 0
+  presented = 0
+  lastReport = Date.now()
+}
+
+function hidePresenters() {
+  if (doom) input.releaseAll(doom)
+  showingTexturedView = false
+  texturedView.setVisible(false)
+  statusBar.setVisible(false)
+  pixelDisplay.setVisible(false)
+  UiTransform.getMutable(screenClip).display = YGDisplay.YGD_NONE
 }
 
 function applySettings() {
@@ -80,9 +162,11 @@ function applySettings() {
   const s = uiScale()
   if (s !== appliedScale) {
     appliedScale = s
-    pixelDisplay.setGeometry(PANEL_LEFT * s, PANEL_TOP * s, PANEL_W * s, PANEL_H * s)
-    statusBar.setGeometry(PANEL_LEFT * s, (PANEL_TOP + SBAR_Y * SCALE) * s, PANEL_W * s, (200 - SBAR_Y) * SCALE * s)
-    texturedView.setGeometry(PANEL_LEFT * s, PANEL_TOP * s, SCALE * s)
+    // Positions are relative to the screen window, which at full size coincides with the panel.
+    pixelDisplay.setGeometry(0, 0, PANEL_W * s, PANEL_H * s)
+    statusBar.setGeometry(0, SBAR_Y * SCALE * s, PANEL_W * s, (200 - SBAR_Y) * SCALE * s)
+    texturedView.setGeometry(0, 0, SCALE * s)
+    setWindow(appearT >= APPEAR_S ? 1 : easeOutCubic(appearT / APPEAR_S))
   }
   if (settings.cells !== appliedCells) {
     const g = gridFor(settings.cells)
@@ -106,8 +190,9 @@ function applySettings() {
 }
 
 function doomSystem(dt: number) {
-  if (!locked) lockPlayer()
+  if (!arcade.active) return
   applySettings()
+  animateWindow(dt)
   ticks++
   if (!doom) return
 
@@ -160,5 +245,6 @@ function doomSystem(dt: number) {
 
 export function main() {
   setupUi()
+  setupCabinet({ onEnter: showPresenters, onLeave: hidePresenters })
   engine.addSystem(doomSystem)
 }

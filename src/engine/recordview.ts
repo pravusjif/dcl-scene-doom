@@ -141,6 +141,21 @@ export class RecordView {
     this.fuzzPool = this.newPool(null, TextureWrapMode.TWM_CLAMP, 4)
   }
 
+  /** Parent the panel to a UI container; positions are then relative to it (canvas pixels). */
+  attachTo(parent: Entity) {
+    UiTransform.getMutable(this.root).parent = parent
+  }
+
+  /** Move the panel without touching the slots (they are positioned relative to the root). */
+  setOrigin(left: number, top: number) {
+    if (left === this.panelLeft && top === this.panelTop) return
+    this.panelLeft = left
+    this.panelTop = top
+    const t = UiTransform.getMutable(this.root)
+    t.positionLeft = left
+    t.positionTop = top
+  }
+
   setVisible(v: boolean) {
     UiTransform.getMutable(this.root).display = v ? YGDisplay.YGD_FLEX : YGDisplay.YGD_NONE
     if (!v) this.hideAll()

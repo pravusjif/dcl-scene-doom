@@ -11,7 +11,7 @@ export const settings = {
   renderer: 'textured' as Renderer,
   /** Pixel-grid budget: 4000 -> 80x50, 8000 -> 113x71, 16000 -> 160x100. Used by the pixel renderer and by the
    *  menu/automap fallback of the textured renderer. */
-  cells: 4000 as Cells,
+  cells: 8000 as Cells,
   /** Presentation rate for the pixel grid and the textured view (the engine always runs at 35 Hz). */
   presentHz: 20,
   /** Last status line, shown in the panel and logged every 2 s. */

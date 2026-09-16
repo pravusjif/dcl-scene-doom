@@ -70,8 +70,23 @@ Verified in the Explorer source: WASD input actions keep reaching the scene whil
 avatar (the modifier only mutates locomotion flags), and `screenDelta` keeps reporting while the pointer is
 locked. `src/engine/input.ts` emits DOOM key down/up on edges: W/S forward/back (menu up/down), A/D strafe,
 mouse turns, left click fires, **E or Space = use** (doors, switches, lifts), F = Enter (menu confirm), Shift =
-run, 1–3 weapons, **4 = Esc** (menu). There is no exit gesture yet: leave the scene to get the avatar back. A controls strip is shown under the screen while DOOM is active. Desktop only:
+run, 1–3 weapons, **4 = Esc** (menu). A controls strip is shown under the screen while DOOM is active. Desktop only:
 `InputModifier` has no effect in the web client.
+
+### The arcade cabinet
+
+The parcel holds one arcade cabinet (`assets/cabinet/`, the model from the hackathon scene; two black boxes
+parented to it cover the branded marquee at the top and the back face, and a `TextShape` on the marquee reads
+DECENTRADOOM). Nothing is drawn
+until the player presses **E** on it (`src/cabinet.ts`): entering freezes the avatar, locks the pointer, hides
+avatars around the cabinet with an `AvatarModifierArea`, switches `MainCamera` to a `VirtualCamera` parked in
+front of the cabinet's screen (so the DOOM panel sits over the glass with the cabinet around it); once the client
+camera has settled there (a 0.6 s transition, checked against the camera transform with a timed fallback) the
+engine starts ticking and the game appears. An optional screen-on animation (`SCREEN_ANIMATION` in
+`src/index.ts`, off by default) grows the screen out of the centre of the panel over 0.7 s: the presenters sit
+inside one `overflow: hidden` UI container that scales up while they slide the opposite way, so the picture is
+revealed in place rather than stretched (four component writes per frame instead of rewriting every cell). The settings panel has a **Leave cabinet** button (hold right-click for a cursor) that
+reverses every step; the engine keeps its state, so the game resumes where it was on the next visit.
 
 ### Display, step 1: what can the client actually draw per frame?
 
@@ -238,7 +253,9 @@ If Homebrew's post-install did not write an Emscripten config, point `EM_CONFIG`
 | `src/engine/recordview.ts` | option A presenter |
 | `src/fbdisplay.ts`, `src/framebuffer.ts` | pixel-grid presenter + `FrameSource` contract |
 | `src/index.ts`, `src/settings.ts`, `src/ui.tsx`, `src/layout.ts` | game system, settings, settings panel + controls strip, screen layout |
+| `src/cabinet.ts` | the arcade cabinet: model, "Play DOOM" pointer event, enter/leave (avatar freeze, virtual camera) |
 | `assets/doom/` | generated atlases and flats |
+| `assets/cabinet/` | arcade cabinet GLB and its textures |
 
 ## Benchmark appendix
 
@@ -301,6 +318,7 @@ Window 2002x1192, settings changed through the panel buttons with `ui_click`, 6�
 - HUD messages over the textured view; in-game menu as an overlay instead of the pixel fallback; a textured
   status bar via the `V_DrawPatch` path.
 - Merge floor spans across rows (2–4 rows per quad) to cut the flat element count.
-- Hide the avatar and client HUD while playing; an exit gesture; persist saves outside MEMFS.
+- Hide the client HUD while playing; persist saves outside MEMFS.
 - Mobile: `InputModifier` and the JS engine are unverified there; the pixel grid is the likely fallback.
-- An in-world screen (arcade cabinet) via `TextShape` `<mark>` cells or a 3D quad presenter.
+- Draw on the cabinet's own screen (visible to other players) via `TextShape` `<mark>` cells or a 3D quad
+  presenter, instead of screen-space UI over the glass.

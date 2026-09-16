@@ -6,7 +6,8 @@ Guidance for Claude Code when working in this repository.
 
 The real 1993 DOOM engine ([doomgeneric](https://github.com/ozkl/doomgeneric)) compiled to plain JavaScript and
 running inside a Decentraland SDK7 scene, presented through the scene's UI. See `README.md` for the approach,
-the decisions and the measurements behind them. Single 1x1 parcel, no 3D content: everything is screen-space UI.
+the decisions and the measurements behind them. Single 1x1 parcel whose only 3D content is an arcade cabinet;
+the game itself is screen-space UI shown while the player is at the cabinet.
 
 ## Commands
 
@@ -22,9 +23,13 @@ No tests or linter are configured. Prettier config lives in `package.json`.
 
 ## Architecture
 
-- `src/index.ts` — one ECS system: lock the avatar and pointer, apply settings, tick the engine, present.
+- `src/index.ts` — one ECS system, active only at the cabinet: apply settings, tick the engine, present; owns the
+  clipping window the presenters live in and its screen-on animation.
+- `src/cabinet.ts` — the arcade cabinet GLB, its "Play DOOM" pointer event, and enter/leave: `InputModifier`,
+  `PointerLock`, `AvatarModifierArea`, `VirtualCamera` in front of the screen via `MainCamera`.
 - `src/settings.ts` — renderer (`pixels` | `textured`), pixel-grid cell budget, presentation rate, status line.
-- `src/ui.tsx` — settings panel (top centre) and controls strip (below the DOOM screen), React-ECS.
+- `src/ui.tsx` — settings panel (top centre, with the Leave button) and controls strip, React-ECS; renders
+  nothing while the cabinet is idle.
 - `src/layout.ts` — the 1280x800 screen panel on the 1920x1080 virtual canvas (4 px per DOOM pixel).
 - `src/engine/doom.ts` — `DoomSource`: module lifecycle, simulated clock, key/mouse queue, palette, records API.
 - `src/engine/input.ts` — Decentraland input actions and pointer deltas → DOOM keys and mouse.
@@ -45,7 +50,12 @@ No tests or linter are configured. Prettier config lives in `package.json`.
 - Explorer MCP: `press_input` reaches DOOM like a real key (menu, walk, fire); `camera_look`/`look_at` give no
   `screenDelta`, so mouse look is tested by hand.
 - Shadow arrays are `Float64Array`; `Float32Array` never compares equal to JS numbers.
-- `InputModifier` blocks `isTriggered` but not `isPressed`; it needs `engine.PlayerEntity`, so apply it from the
-  first system tick, not `main()`.
+- `InputModifier` blocks `isTriggered` but not `isPressed`; it needs `engine.PlayerEntity`, so apply it from a
+  system tick or an event callback, not `main()` (the cabinet applies it from its pointer event).
+- `scene.json` (spawn point, parcels) is not hot-reloaded: restart `npm start` after editing it.
+- Deleting an `AvatarModifierArea` leaves avatars hidden in the Explorer (even across a scene reload); the cabinet
+  keeps the component and moves the volume away instead.
+- Explorer MCP entry/exit: `press_input primary` aimed at (8, 1.5, 9.6) hits the cabinet; the Leave button is the
+  last `ui_list stack:sdk` element (React-ECS remounts the panel, so ids change on every visit).
 - The shareware `doom1.wad` (DOOM 1.9, MD5 `f0cefca49926d00903cf57551d901abe`) may be redistributed unmodified;
   a different IWAD means regenerating both the base64 module and the atlases.
