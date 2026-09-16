@@ -1,0 +1,101 @@
+import { Color4 } from '@dcl/sdk/math'
+import ReactEcs, { Label, ReactEcsRenderer, UiEntity } from '@dcl/sdk/react-ecs'
+
+import { CELL_OPTIONS, settings } from './settings'
+import { PANEL_H, PANEL_LEFT, PANEL_TOP, PANEL_W } from './layout'
+
+const WHITE = Color4.White()
+const PANEL_BG = Color4.create(0, 0, 0, 0.7)
+const BTN_ON = Color4.create(0.8, 0.2, 0.2, 1)
+const BTN_OFF = Color4.create(0.25, 0.25, 0.25, 0.95)
+const HINT = Color4.create(0.8, 0.8, 0.8, 1)
+const STATUS = Color4.create(1, 0.85, 0.6, 1)
+
+const CONTROLS =
+  'W/S move   A/D strafe   mouse turn   click fire   E/Space use (doors, switches)   ' +
+  'F Enter   4 menu (Esc)   1-3 weapons   Shift run   |   hold right-click for a cursor to use the settings'
+
+function Button(props: { key?: string | number; label: string; active: boolean; onClick: () => void }) {
+  return (
+    <UiEntity
+      uiTransform={{ width: 110, height: 30, margin: { right: 6 }, justifyContent: 'center', alignItems: 'center' }}
+      uiBackground={{ color: props.active ? BTN_ON : BTN_OFF }}
+      onMouseDown={props.onClick}
+    >
+      <Label value={props.label} fontSize={15} color={WHITE} />
+    </UiEntity>
+  )
+}
+
+function Caption(props: { text: string }) {
+  return (
+    <UiEntity uiTransform={{ width: 100, height: 30, justifyContent: 'flex-end', alignItems: 'center', margin: { right: 8 } }}>
+      <Label value={props.text} fontSize={15} color={HINT} textAlign="middle-right" />
+    </UiEntity>
+  )
+}
+
+function SettingsPanel() {
+  return (
+    <UiEntity
+      uiTransform={{
+        positionType: 'absolute',
+        position: { left: 0, top: 24 },
+        width: '100%',
+        flexDirection: 'column',
+        alignItems: 'center'
+      }}
+    >
+      <UiEntity
+        uiTransform={{ flexDirection: 'column', alignItems: 'center', padding: { top: 8, bottom: 6, left: 16, right: 16 } }}
+        uiBackground={{ color: PANEL_BG }}
+      >
+        <UiEntity uiTransform={{ flexDirection: 'row', alignItems: 'center', margin: { bottom: 6 } }}>
+          <Caption text="Renderer" />
+          <Button label="Doom (pixels)" active={settings.renderer === 'pixels'} onClick={() => (settings.renderer = 'pixels')} />
+          <Button label="DoomTex" active={settings.renderer === 'textured'} onClick={() => (settings.renderer = 'textured')} />
+          <Caption text="Cells" />
+          {CELL_OPTIONS.map((c) => (
+            <Button key={c} label={String(c)} active={settings.cells === c} onClick={() => (settings.cells = c)} />
+          ))}
+        </UiEntity>
+        <Label
+          value={settings.status}
+          fontSize={13}
+          color={STATUS}
+          textAlign="middle-center"
+          uiTransform={{ width: 1100, height: 20 }}
+        />
+      </UiEntity>
+    </UiEntity>
+  )
+}
+
+function ControlsStrip() {
+  return (
+    <UiEntity
+      uiTransform={{
+        positionType: 'absolute',
+        position: { left: PANEL_LEFT, top: PANEL_TOP + PANEL_H + 8 },
+        width: PANEL_W,
+        height: 28,
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}
+      uiBackground={{ color: PANEL_BG }}
+    >
+      <Label value={CONTROLS} fontSize={15} color={STATUS} textAlign="middle-center" />
+    </UiEntity>
+  )
+}
+
+const uiRoot = () => (
+  <UiEntity uiTransform={{ width: '100%', height: '100%', positionType: 'absolute', position: { top: 0, left: 0 } }}>
+    <SettingsPanel />
+    <ControlsStrip />
+  </UiEntity>
+)
+
+export function setupUi() {
+  ReactEcsRenderer.setUiRenderer(uiRoot, { virtualWidth: 1920, virtualHeight: 1080 })
+}

@@ -1,69 +1,51 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working in this repository.
 
-## Project Overview
+## Project
 
-A DOOM-like first-person game rendered entirely through Decentraland SDK7's UI system (ReactEcs). Uses DDA raycasting to render walls as colored UI columns, with sprite-based enemies depth-tested per column against wall distances. Runs on a single 1x1 parcel.
+The real 1993 DOOM engine ([doomgeneric](https://github.com/ozkl/doomgeneric)) compiled to plain JavaScript and
+running inside a Decentraland SDK7 scene, presented through the scene's UI. See `README.md` for the approach,
+the decisions and the measurements behind them. Single 1x1 parcel, no 3D content: everything is screen-space UI.
 
 ## Commands
 
-- `npm start` — Start local dev server (Decentraland scene preview)
-- `npm run build` — Build the scene
-- `npm run deploy` — Deploy to Decentraland
+- `npm start` — local preview (add `-- --mcp --skip-auth-screen true` to drive the Explorer via its MCP server)
+- `npm run build` — bundle + typecheck; `npx sdk-commands build --production` for the deployable ~7 MB bundle
+- `cd engine && make DG=<path to doomgeneric/doomgeneric>` — rebuild `src/engine/doomgeneric.js` (needs `emcc`)
+- `engine/pack-wad.sh` — regenerate `src/engine/doom1.wad.b64.ts` from `engine/doom1.wad`
+- `node tools/wad-atlas.js engine/doom1.wad assets/doom && mv assets/doom/atlas-index.ts src/engine/` — atlases
+- `node --stack-size=4000 tools/render-records.js engine/build` — headless check of the draw-call recorder
+- `node --stack-size=4000 tools/thumbnail.js` — regenerate `images/scene-thumbnail.png` from an engine frame
 
-No test framework is configured. No linter is configured. Prettier config is in package.json (no semi, single quotes, 120 print width, no trailing commas).
+No tests or linter are configured. Prettier config lives in `package.json`.
 
 ## Architecture
 
-**Entry point:** `src/index.ts` calls `initDoomGame()` and `setupDoomUi()`.
+- `src/index.ts` — one ECS system: lock the avatar and pointer, apply settings, tick the engine, present.
+- `src/settings.ts` — renderer (`pixels` | `textured`), pixel-grid cell budget, presentation rate, status line.
+- `src/ui.tsx` — settings panel (top centre) and controls strip (below the DOOM screen), React-ECS.
+- `src/layout.ts` — the 1280x800 screen panel on the 1920x1080 virtual canvas (4 px per DOOM pixel).
+- `src/engine/doom.ts` — `DoomSource`: module lifecycle, simulated clock, key/mouse queue, palette, records API.
+- `src/engine/input.ts` — Decentraland input actions and pointer deltas → DOOM keys and mouse.
+- `src/engine/recordview.ts` — textured presenter: recorded draw calls → pooled `UiTransform`/`UiBackground`.
+- `src/fbdisplay.ts` — pixel-grid presenter (`FrameSource` → static cell grid with dirty colour writes).
+- `engine/` — doomgeneric platform layer, draw-call recorder, patched renderer files, Makefile, shareware WAD.
+- `tools/` — WAD atlas extractor, headless record validator, thumbnail renderer.
 
-**Game loop:** `src/doom/game.ts` registers a single ECS system (`doomSystem`) via `engine.addSystem()`. Each frame: read input → sync camera angle → move player → handle doors → update enemy AI → cast wall rays → cast enemy sprites → update minimap.
+## Rules that matter here
 
-**Rendering approach:** No 3D entities are used. The entire game renders via `ReactEcsRenderer` in `src/doom-ui.tsx`. Wall columns, enemy sprite strips, HUD, minimap, crosshair, and flash overlays are all absolutely-positioned `UiEntity` elements. The viewport is 1920x960 pixels with 80 ray columns (24px each).
-
-**Key modules in `src/doom/`:**
-- `raycaster.ts` — DDA wall raycasting, produces per-column distance and color data
-- `enemies.ts` — Enemy spawning, AI (idle→chase→attack), line-of-sight checks, sprite casting with per-column depth testing against walls, hitscan shooting
-- `map.ts` — 24x24 tile map (mutable copy of original for door state), wall colors with side darkening and distance fog
-- `doors.ts` — Door state machine (closed→opening→open→closing), modifies `WORLD_MAP` cells between `DOOR_RED` and `EMPTY`
-- `player.ts` — Movement with axis-separated wall collision, camera plane maintains ~66° FOV
-- `input.ts` — Reads DCL input actions (WASD, mouse look via camera quaternion yaw extraction, click to shoot, F for doors, key 4 to toggle)
-- `types.ts` — All interfaces and enums (`GameState`, `Enemy`, `Door`, `ColumnRenderData`, `SpriteStrip`, etc.)
-
-**State management:** Single mutable `GameState` object in `game.ts`, exposed via `getGameState()`. UI reads it each frame. All render data (columns, sprite strips, minimap cells) is pre-allocated and mutated in-place to avoid GC pressure.
-
-**Avatar control:** The DCL avatar is locked (`InputModifier.disableAll`) and teleported to a fixed position when the game is active. Key 4 toggles between DOOM mode and normal DCL exploration.
-
-## Conventions
-
-- TypeScript strict mode, extends `@dcl/sdk/types/tsconfig.ecs7.json`
-- TSX for UI components (`src/doom-ui.tsx`)
-- Viewport constants (`VP_WIDTH=1920`, `VP_HEIGHT=960`) are duplicated between `doom-ui.tsx` and `enemies.ts` — keep them in sync
-- Colors use `Color4.create()` from `@dcl/sdk/math`
-- Map uses `number[][]` indexed as `WORLD_MAP[y][x]` (row-major)
-
-## Rendering Details
-
-**Z-Index Layering:**
-- `zIndex: 0` — ceiling
-- `zIndex: 1` — sprite strips (only where depth test passes)
-- `zIndex: 2` — wall columns (always on top of sprites)
-- `zIndex: 9999` — overlays, crosshair, minimap, HUD, death screen
-
-**Pre-allocated Pools:** 160 SpriteStrip slots, 16 EnemySpriteData slots. `spriteStripCount` tracks active strips per frame. ~360 max UiEntity elements total.
-
-**Per-Column Depth Testing:** Enemy sprites are split into vertical strips per ray column. Each strip is depth-tested against the wall distance at that column — only emitted if sprite is closer than the wall.
-
-## SDK7 Gotchas
-
-- `Color4` properties are readonly — replace entire object, don't mutate in place
-- Teleport avatar with `movePlayerTo` from `~system/RestrictedActions`, NOT `Transform.createOrReplace`
-- `InputModifier.Mode.Standard({ disableAll: true })` — use the helper, not raw `$case` objects
-- `InputModifier` must be deferred to first system tick (PlayerEntity not ready in `main()`)
-- `InputModifier({ disableAll: true })` blocks `isTriggered()` — use `isPressed()` with manual debounce instead
-- `inputSystem.isTriggered` takes 2 args: `(InputAction, PointerEventType)`
-- Camera quaternion yaw: do NOT negate it when passing to `setPlayerAngle()`
-- UI z-ordering requires explicit `zIndex` on `uiTransform` (DOM order not guaranteed)
-- Negative margins not supported for centering — use flexbox container instead
-- `IA_PRIMARY` = E key, `IA_SECONDARY` = F key, `IA_POINTER` = left click. Right-click is reserved by Explorer
+- Never use React-ECS for anything updated per frame; the presenters mutate raw components in place.
+- The engine's clock is simulated: `DG_SleepMs` must advance it or `TryRunTics` never returns.
+- `R_DrawSpanLow` doubles `ds_x1/ds_x2` in place; spans are placed at `x << detailshift`.
+- UI sibling order is not draw order: use `zIndex` containers (see `RecordView.layer`).
+- React-ECS scales its tree by `min(canvas.width / 1920, canvas.height / 1080)`; raw `UiTransform` values are canvas
+  pixels. Anything positioned next to React UI must multiply virtual units by `uiScale()` from `src/layout.ts`
+  (the presenters do, through `setGeometry`).
+- Explorer MCP: `press_input` reaches DOOM like a real key (menu, walk, fire); `camera_look`/`look_at` give no
+  `screenDelta`, so mouse look is tested by hand.
+- Shadow arrays are `Float64Array`; `Float32Array` never compares equal to JS numbers.
+- `InputModifier` blocks `isTriggered` but not `isPressed`; it needs `engine.PlayerEntity`, so apply it from the
+  first system tick, not `main()`.
+- The shareware `doom1.wad` (DOOM 1.9, MD5 `f0cefca49926d00903cf57551d901abe`) may be redistributed unmodified;
+  a different IWAD means regenerating both the base64 module and the atlases.

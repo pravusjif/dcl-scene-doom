@@ -1,7 +1,8 @@
 {
   "name": "dcl-scene-doom",
   "version": "1.0.0",
-  "description": "DOOM-Like DDA Raycast rendering",
+  "license": "GPL-2.0-or-later",
+  "description": "The real DOOM engine running inside a Decentraland SDK7 scene",
   "scripts": {
     "start": "sdk-commands start",
     "deploy": "sdk-commands deploy",
@@ -10,8 +11,8 @@
     "upgrade-sdk:next": "npm install --save-dev @dcl/sdk@next"
   },
   "devDependencies": {
-    "@dcl/js-runtime": "7.21.0",
-    "@dcl/sdk": "latest"
+    "@dcl/sdk": "latest",
+    "@dcl/js-runtime": "7.29.0"
   },
   "engines": {
     "node": ">=16.0.0",

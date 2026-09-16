@@ -2,14 +2,14 @@
   "ecs7": true,
   "runtimeVersion": "7",
   "display": {
-    "title": "DOOM-Like DDA Raycast rendering",
-    "description": "DOOM-Like DDA Raycast rendering",
+    "title": "DOOM in Decentraland",
+    "description": "The 1993 DOOM engine, compiled to JavaScript, rendered with the scene UI",
     "navmapThumbnail": "images/scene-thumbnail.png",
     "favicon": "favicon_asset"
   },
-  "owner": "",
+  "owner": "Pravus",
   "contact": {
-    "name": "SDK",
+    "name": "",
     "email": ""
   },
   "main": "bin/index.js",
@@ -20,8 +20,12 @@
     ],
     "base": "0,0"
   },
+  "spawnPoints": [],
+  "worldConfiguration": {
+    "name": "decentradoom.dcl.eth"
+  },
   "featureToggles": {
     "voiceChat": "enabled",
-    "portableExperiences": "enabled"
+    "portableExperiences": "disabled"
   }
 }

@@ -1,7 +1,7 @@
-package-lock.json
-*.js
 node_modules
 bin/
+package-lock.json
+engine/build/
 .DS_Store
 **/.DS_Store
 npm-debug.log*
@@ -9,3 +9,4 @@ yarn-debug.log*
 yarn-error.log*
 dclcontext
 .idea
+*.crdt
