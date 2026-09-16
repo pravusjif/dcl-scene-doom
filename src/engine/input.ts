@@ -25,7 +25,7 @@ const KEYMAP: [InputAction, number][] = [
 
 export class DoomInput {
   /** Mouse look sensitivity: DOOM mouse units per screen pixel. */
-  sensitivity = 1.5
+  sensitivity = 2.25
   private down = new Uint8Array(KEYMAP.length)
 
   poll(doom: DoomSource, screenDelta?: { x: number; y: number }) {
