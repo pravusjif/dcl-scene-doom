@@ -5,6 +5,8 @@ export const SAVE_SLOT = 0
 
 /** Intermission statistics of one finished level; times in tics (35 per second). */
 export type LevelResult = {
+  /** DOOM skill 0-4 (I'm too young to die .. Nightmare); records from before it was tracked have none. */
+  skill?: number
   kills: number
   maxKills: number
   items: number
@@ -29,26 +31,51 @@ export function levelKey(episode: number, map: number): string {
   return `E${episode}M${map}`
 }
 
-/** 1000 per level, 10 per kill, 2 per item, 50 per secret, 5 per second under par. */
+export const SKILL_NAMES = [
+  "I'm too young to die",
+  'Hey, not too rough',
+  'Hurt me plenty',
+  'Ultra-Violence',
+  'Nightmare!'
+]
+export const SKILL_SHORT = ['ITYTD', 'HNTR', 'HMP', 'UV', 'NM']
+/** Score multiplier per skill, in percent. Hurt me plenty (the engine default) is the 100 % baseline. */
+export const SKILL_MULTIPLIER = [50, 75, 100, 125, 150]
+export const DEFAULT_SKILL = 2
+
+export function skillOf(r: { skill?: number }): number {
+  return r.skill ?? DEFAULT_SKILL
+}
+
+/**
+ * 1000 per level, 10 per kill, 2 per item, 50 per secret, 5 per second under par, then the skill multiplier
+ * (50 % on I'm too young to die up to 150 % on Nightmare).
+ */
 export function levelScore(r: LevelResult): number {
   const underPar = r.par > 0 ? Math.max(0, Math.floor((r.par - r.time) / 35)) : 0
-  return 1000 + 10 * r.kills + 2 * r.items + 50 * r.secrets + 5 * underPar
+  const base = 1000 + 10 * r.kills + 2 * r.items + 50 * r.secrets + 5 * underPar
+  return Math.round((base * SKILL_MULTIPLIER[skillOf(r)]) / 100)
 }
 
 export function emptyProgress(address: string): Progress {
   return { address, name: '', score: 0, levels: {}, updatedAt: 0 }
 }
 
-/** Shareware DOOM: episode 1, maps 1-9; counts within the level's totals; at least 3 s of play. */
+/**
+ * Shareware DOOM: episode 1, maps 1-9; skill 0-4; counts within the level's totals (except kills on Nightmare,
+ * where respawned monsters count again); at least 3 s of play.
+ */
 export function validLevelResult(episode: number, map: number, r: LevelResult): boolean {
   const int = (n: number, lo: number, hi: number) => Number.isInteger(n) && n >= lo && n <= hi
+  const skill = skillOf(r)
   return (
     int(episode, 1, 1) &&
     int(map, 1, 9) &&
+    int(skill, 0, 4) &&
     int(r.maxKills, 0, 1000) &&
     int(r.maxItems, 0, 1000) &&
     int(r.maxSecrets, 0, 100) &&
-    int(r.kills, 0, r.maxKills) &&
+    int(r.kills, 0, skill === 4 ? 10 * r.maxKills : r.maxKills) &&
     int(r.items, 0, r.maxItems) &&
     int(r.secrets, 0, r.maxSecrets) &&
     int(r.time, 35 * 3, 35 * 3600 * 10) &&

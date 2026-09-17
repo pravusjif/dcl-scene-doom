@@ -4,7 +4,7 @@ import { engine, Entity, Font, Material, MeshRenderer, TextAlignMode, TextShape,
 import { Color4, Quaternion, Vector3 } from '@dcl/sdk/math'
 
 import { CABINET_POSITION } from '../cabinet'
-import { formatTics, furthestMap, levelKey, totals } from '../shared/progress'
+import { formatTics, furthestMap, levelKey, SKILL_MULTIPLIER, SKILL_SHORT, totals } from '../shared/progress'
 import { LEADERBOARD_SIZE } from '../shared/schemas'
 import { client } from './state'
 
@@ -101,7 +101,7 @@ function progressLines(): string {
   if (l.inLevel) {
     lines.push(
       '',
-      `<color=#ff3326>NOW ${levelKey(l.episode, l.map)}</color>`,
+      `<color=#ff3326>NOW ${levelKey(l.episode, l.map)}</color>  ${SKILL_SHORT[l.skill] ?? ''} x${SKILL_MULTIPLIER[l.skill] ?? 100}%`,
       `kills ${l.kills}/${l.maxKills}  secrets ${l.secrets}/${l.maxSecrets}`,
       `health ${l.health}  time ${formatTics(l.time)}`
     )

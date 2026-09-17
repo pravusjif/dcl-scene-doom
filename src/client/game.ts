@@ -236,6 +236,7 @@ function updateStats(d: DoomSource) {
   if (l.inLevel) {
     l.episode = d.stat(DoomStat.EPISODE)
     l.map = d.stat(DoomStat.MAP)
+    l.skill = d.stat(DoomStat.SKILL)
     l.kills = d.stat(DoomStat.KILLS)
     l.maxKills = d.stat(DoomStat.TOTAL_KILLS)
     l.items = d.stat(DoomStat.ITEMS)
@@ -257,6 +258,8 @@ function updateStats(d: DoomSource) {
       reportLevel({
         episode,
         map,
+        // gameskill is untouched by G_DoCompleted, so it still describes the level just finished.
+        skill: d.stat(DoomStat.SKILL),
         kills: d.stat(DoomStat.WI_KILLS),
         maxKills: d.stat(DoomStat.WI_MAX_KILLS),
         items: d.stat(DoomStat.WI_ITEMS),

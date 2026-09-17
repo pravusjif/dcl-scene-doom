@@ -100,8 +100,9 @@ storage; the client (`src/client/`) plays and reports.
 - **Leaderboard data comes from the engine, not from savegames.** `dg_dcl_stat` exposes the live player stats and
   the intermission struct (`wminfo`: kills, items, secrets, time, par of the level just finished). The client
   detects the level -> intermission transition and sends `levelDone`; the server checks the bounds (episode 1,
-  maps 1-9, counts within the level totals), scores it (1000 per level + 10/kill + 2/item + 50/secret + 5 per
-  second under par, best result per level counts), writes the player's `Progress` JSON to per-player storage and
+  maps 1-9, skill 0-4, counts within the level totals), scores it (1000 per level + 10/kill + 2/item + 50/secret
+  + 5 per second under par, times a difficulty multiplier: 50 % on I'm too young to die, 75 %, 100 % on Hurt me
+  plenty, 125 %, 150 % on Nightmare; best result per level counts), writes the player's `Progress` JSON to per-player storage and
   the top 10 to scene storage, and republishes a synced `Leaderboard` component. Trust-based: the server cannot
   replay the game, so the checks are sanity bounds, not anti-cheat.
 - **Savegames are opaque blobs.** `dg_dcl_save(slot)` / `dg_dcl_load(slot)` drive the engine's own save/load

@@ -25,6 +25,7 @@ export const client = {
     inLevel: false,
     episode: 0,
     map: 0,
+    skill: 0,
     kills: 0,
     maxKills: 0,
     items: 0,

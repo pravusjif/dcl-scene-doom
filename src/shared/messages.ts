@@ -15,6 +15,7 @@ export const Messages = {
   levelDone: Schemas.Map({
     episode: Schemas.Int,
     map: Schemas.Int,
+    skill: Schemas.Int,
     kills: Schemas.Int,
     maxKills: Schemas.Int,
     items: Schemas.Int,

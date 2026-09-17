@@ -136,6 +136,7 @@ function netSystem(dt: number) {
 export function reportLevel(data: {
   episode: number
   map: number
+  skill: number
   kills: number
   maxKills: number
   items: number
