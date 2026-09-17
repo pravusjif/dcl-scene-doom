@@ -1,10 +1,10 @@
 // The arcade cabinet DOOM lives in.
 //
 // The parcel holds one cabinet (assets/cabinet, from the hackathon scene). Pressing E on it enters the arcade:
-// the avatar is frozen and hidden, the pointer is locked, a VirtualCamera is parked in front of the cabinet's
-// screen so the DOOM panel drawn by the presenters sits over it, and once the camera has finished its transition
-// the engine starts ticking and the game appears. Leaving reverses every step; the engine keeps its state, so the
-// game resumes where it was.
+// the avatar is frozen and hidden and a VirtualCamera is parked in front of the cabinet's screen so the DOOM
+// panel drawn by the presenters sits over it; once the camera has finished its transition the cursor is locked,
+// the engine starts ticking and the game appears. Leaving reverses every step; the engine keeps its state, so
+// the game resumes where it was.
 import {
   AvatarModifierArea,
   AvatarModifierType,
@@ -139,6 +139,7 @@ function transitionSystem(dt: number) {
   if (enteringFor < TRANSITION_TIMEOUT_S && !settled) return
   console.log(`[doom] cabinet camera ${settled ? 'settled' : 'timed out'} after ${enteringFor.toFixed(2)} s`)
   entering = false
+  setPointerLock(true)
   arcade.active = true
   onEnter()
 }
@@ -150,6 +151,20 @@ function cameraSettled(): boolean {
   const base = Transform.get(cabinet)
   const target = Vector3.add(base.position, Vector3.rotate(Transform.get(camera).position, base.rotation))
   return Vector3.distance(cam.position, target) < CAMERA_SETTLED_M
+}
+
+/** Lock or free the cursor. The Explorer owns this component (it reports the cursor state, and the player can
+ *  still free the cursor by holding right-click); the scene write asks for the lock and, where it is ignored,
+ *  seeds the value `pointerLocked` reads. */
+function setPointerLock(locked: boolean) {
+  const lock = PointerLock.getMutableOrNull(engine.CameraEntity) ?? PointerLock.create(engine.CameraEntity)
+  lock.isPointerLocked = locked
+}
+
+/** Is the cursor currently locked? While it is free — the player is holding right-click to reach the settings
+ *  panel or the Leave button — no input reaches DOOM (src/client/game.ts). */
+export function pointerLocked(): boolean {
+  return PointerLock.getOrNull(engine.CameraEntity)?.isPointerLocked ?? false
 }
 
 function addCover(cover: { position: Vector3; scale: Vector3 }): Entity {
@@ -177,8 +192,6 @@ export function enterCabinet() {
   pointerEventsSystem.removeOnPointerDown(cabinet)
 
   InputModifier.createOrReplace(engine.PlayerEntity, { mode: InputModifier.Mode.Standard({ disableAll: true }) })
-  const lock = PointerLock.getMutableOrNull(engine.CameraEntity) ?? PointerLock.create(engine.CameraEntity)
-  lock.isPointerLocked = true
   Transform.getMutable(hideZone).position = HIDE_ZONE_ACTIVE
   MainCamera.createOrReplace(engine.CameraEntity, { virtualCameraEntity: camera })
 }
@@ -193,8 +206,7 @@ export function leaveCabinet() {
   const main = MainCamera.getMutableOrNull(engine.CameraEntity)
   if (main) main.virtualCameraEntity = undefined
   Transform.getMutable(hideZone).position = HIDE_ZONE_PARKED
-  const lock = PointerLock.getMutableOrNull(engine.CameraEntity)
-  if (lock) lock.isPointerLocked = false
+  setPointerLock(false)
   InputModifier.createOrReplace(engine.PlayerEntity, { mode: InputModifier.Mode.Standard({ disableAll: false }) })
 
   armCabinet()

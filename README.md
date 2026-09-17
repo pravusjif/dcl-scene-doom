@@ -68,9 +68,13 @@ WebAssembly, and not a rewrite.**
 
 Verified in the Explorer source: WASD input actions keep reaching the scene while `InputModifier` freezes the
 avatar (the modifier only mutates locomotion flags), and `screenDelta` keeps reporting while the pointer is
-locked. `src/engine/input.ts` emits DOOM key down/up on edges: W/S forward/back (menu up/down), A/D strafe,
+locked. Input reaches DOOM only while the pointer *is* locked: `PointerLock` on the camera entity reports the
+cursor state, and while the player holds right-click for a cursor (the settings panel, the Leave button) held
+keys are released and neither keys nor mouse movement are polled. `src/engine/input.ts` emits DOOM key down/up on edges: W/S forward/back (menu up/down), A/D strafe,
 mouse turns, left click fires, **E or Space = use** (doors, switches, lifts), F = Enter (menu confirm), Shift =
-run, 1–3 weapons, **4 = Esc** (menu). A controls strip is shown under the screen while DOOM is active. Desktop only:
+run, 1–3 weapons, **4 = Esc** (menu). While a menu is open (`dg_dcl_view(6)`, `menuactive`) the use keys are
+sent as Enter instead, since `M_Responder` only selects on `key_menu_forward` (KEY_ENTER) and USE does nothing
+in a menu — so E and Space confirm there as well as F. A controls strip is shown under the screen while DOOM is active. Desktop only:
 `InputModifier` has no effect in the web client.
 
 ### The arcade cabinet
@@ -78,11 +82,11 @@ run, 1–3 weapons, **4 = Esc** (menu). A controls strip is shown under the scre
 The parcel holds one arcade cabinet (`assets/cabinet/`, the model from the hackathon scene; two black boxes
 parented to it cover the branded marquee at the top and the back face, and a `TextShape` on the marquee reads
 DECENTRADOOM). Nothing is drawn
-until the player presses **E** on it (`src/cabinet.ts`): entering freezes the avatar, locks the pointer, hides
+until the player presses **E** on it (`src/cabinet.ts`): entering freezes the avatar, hides
 avatars around the cabinet with an `AvatarModifierArea`, switches `MainCamera` to a `VirtualCamera` parked in
 front of the cabinet's screen (so the DOOM panel sits over the glass with the cabinet around it); once the client
 camera has settled there (a 0.6 s transition, checked against the camera transform with a timed fallback) the
-engine starts ticking and the game appears. An optional screen-on animation (`SCREEN_ANIMATION` in
+pointer is locked, the engine starts ticking and the game appears. An optional screen-on animation (`SCREEN_ANIMATION` in
 `src/index.ts`, off by default) grows the screen out of the centre of the panel over 0.7 s: the presenters sit
 inside one `overflow: hidden` UI container that scales up while they slide the opposite way, so the picture is
 revealed in place rather than stretched (four component writes per frame instead of rewriting every cell). The settings panel has a **Leave cabinet** button (hold right-click for a cursor) that

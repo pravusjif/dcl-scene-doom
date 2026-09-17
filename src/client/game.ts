@@ -20,7 +20,7 @@ import {
 } from '@dcl/sdk/ecs'
 import { Color4 } from '@dcl/sdk/math'
 
-import { arcade, setupCabinet } from '../cabinet'
+import { arcade, pointerLocked, setupCabinet } from '../cabinet'
 import { DoomInput } from '../engine/input'
 import { decodeBase64, DoomSource, DoomStat, encodeBase64, GameState } from '../engine/doom'
 import { RecordView } from '../engine/recordview'
@@ -319,8 +319,14 @@ function doomSystem(dt: number) {
   ticks++
   if (!doom) return
 
-  const pointer = PrimaryPointerInfo.getOrNull(engine.RootEntity)
-  input.poll(doom, pointer?.screenDelta)
+  // Only a locked cursor drives DOOM: while the player holds right-click to reach the settings panel or the
+  // Leave button, keys and mouse movement belong to the Explorer, so held keys are released and nothing is polled.
+  if (pointerLocked()) {
+    const pointer = PrimaryPointerInfo.getOrNull(engine.RootEntity)
+    input.poll(doom, pointer?.screenDelta)
+  } else {
+    input.releaseAll(doom)
+  }
   const frame = doom.render(dt)
   updateStats(doom)
 

@@ -2,7 +2,8 @@
 //
 // WASD keep reaching the scene while InputModifier freezes the avatar (verified in the Explorer source), so
 // movement polls inputSystem.isPressed per tick and emits DOOM key down/up on edges. Mouse look comes from
-// PrimaryPointerInfo.screenDelta, which keeps reporting while the pointer is locked.
+// PrimaryPointerInfo.screenDelta, which keeps reporting while the pointer is locked. While a DOOM menu is open
+// the use keys are sent as Enter, so E and Space select as well as F.
 import { InputAction, inputSystem } from '@dcl/sdk/ecs'
 
 import { DoomKey, DoomSource } from './doom'
@@ -13,8 +14,8 @@ const KEYMAP: [InputAction, number][] = [
   [InputAction.IA_LEFT, DoomKey.STRAFE_L], // A: strafe left
   [InputAction.IA_RIGHT, DoomKey.STRAFE_R], // D: strafe right
   [InputAction.IA_POINTER, DoomKey.FIRE], // left click: fire
-  [InputAction.IA_PRIMARY, DoomKey.USE], // E: use / open doors
-  [InputAction.IA_JUMP, DoomKey.USE], // Space: use
+  [InputAction.IA_PRIMARY, DoomKey.USE], // E: use / open doors (menu: confirm)
+  [InputAction.IA_JUMP, DoomKey.USE], // Space: use (menu: confirm)
   [InputAction.IA_SECONDARY, DoomKey.ENTER], // F: menu confirm
   [InputAction.IA_WALK, DoomKey.RSHIFT], // Shift: run
   [InputAction.IA_ACTION_3, DoomKey.key('1')], // 1: fist / chainsaw
@@ -27,14 +28,21 @@ export class DoomInput {
   /** Mouse look sensitivity: DOOM mouse units per screen pixel. */
   sensitivity = 2.25
   private down = new Uint8Array(KEYMAP.length)
+  /** The DOOM key each slot was pressed with, so the release matches it even if the menu closed in between. */
+  private sent = new Int32Array(KEYMAP.length)
 
   poll(doom: DoomSource, screenDelta?: { x: number; y: number }) {
+    // M_Responder only selects on KEY_ENTER, so while the menu is up the use keys (E, Space) send Enter too;
+    // USE does nothing in a menu, so nothing is lost by the swap.
+    const menu = doom.view(6) === 1
     for (let i = 0; i < KEYMAP.length; i++) {
       const pressed = inputSystem.isPressed(KEYMAP[i][0]) ? 1 : 0
-      if (pressed !== this.down[i]) {
-        this.down[i] = pressed
-        doom.key(pressed === 1, KEYMAP[i][1])
+      if (pressed === this.down[i]) continue
+      this.down[i] = pressed
+      if (pressed === 1) {
+        this.sent[i] = menu && KEYMAP[i][1] === DoomKey.USE ? DoomKey.ENTER : KEYMAP[i][1]
       }
+      doom.key(pressed === 1, this.sent[i])
     }
     if (screenDelta && screenDelta.x !== 0) {
       doom.mouse(screenDelta.x * this.sensitivity, 0)
@@ -45,7 +53,7 @@ export class DoomInput {
     for (let i = 0; i < KEYMAP.length; i++) {
       if (this.down[i]) {
         this.down[i] = 0
-        doom.key(false, KEYMAP[i][1])
+        doom.key(false, this.sent[i])
       }
     }
   }

@@ -21,7 +21,7 @@ const BAR_FG = Color4.create(1, 0.3, 0.2, 1)
 const TEXT_DISABLED = Color4.create(0.55, 0.55, 0.55, 1)
 
 const CONTROLS =
-  'W/S move   A/D strafe   mouse turn   click fire   E/Space use (doors, switches)   ' +
+  'W/S move   A/D strafe   mouse turn   click fire   E/Space use (doors, switches; menu: select)   ' +
   'F Enter   4 menu (Esc)   1-3 weapons   Shift run   |   hold right-click for a cursor to use the settings or leave'
 
 function Button(props: {
