@@ -109,7 +109,7 @@ storage; the client (`src/client/`) plays and reports.
 
 ### Display, step 1: what can the client actually draw per frame?
 
-Before building anything, the benchmark twin mutated every candidate primitive every scene
+Before building anything, the [benchmark twin](https://github.com/pravusjif/dcl-doom-benchmarks) mutated every candidate primitive every scene
 tick at 500–8000 cells and measured with the Explorer MCP (`get_performance_stats`; use
 `framesSampled / sampleSeconds` — its `averageFps` field reported 120 while the client was at 3 FPS). The
 numbers that drove the design (desktop Explorer, M-series MacBook Pro, client baseline 120 FPS, scene tick
