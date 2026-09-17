@@ -34,6 +34,9 @@
 #include "am_map.h"
 #include "dcl_record.h"
 #include "r_sky.h"
+#include "g_game.h"
+#include "d_main.h"
+#include "p_saveg.h"
 
 extern int numtextures;
 extern int numflats;
@@ -162,4 +165,59 @@ EMSCRIPTEN_KEEPALIVE int dg_dcl_palette_changed(void)
     int changed = palette_changed ? 1 : 0;
     palette_changed = 0;
     return changed;
+}
+
+// ---- savegames and progress (leaderboard) ----
+
+// Request a save into slot `slot` with a fixed description; G_Ticker performs it on the next tic and writes
+// ./.savegame/doomsav<slot>.dsg into the module filesystem (see dg_dcl_save_path). Poll dg_dcl_stat(0) == 0.
+EMSCRIPTEN_KEEPALIVE void dg_dcl_save(int slot) { G_SaveGame(slot, "DECENTRADOOM"); }
+
+// Request a load of slot `slot`; the file must exist in the module filesystem (the scene writes it there).
+EMSCRIPTEN_KEEPALIVE void dg_dcl_load(int slot) { G_LoadGame(P_SaveGameFile(slot)); }
+
+// Test hook: finish the current level as if the exit switch had been used (G_ExitLevel -> intermission).
+EMSCRIPTEN_KEEPALIVE void dg_dcl_exit_level(void) { if (usergame && gamestate == GS_LEVEL) G_ExitLevel(); }
+
+// NUL-terminated path of a save slot inside the module filesystem.
+EMSCRIPTEN_KEEPALIVE const char *dg_dcl_save_path(int slot) { return P_SaveGameFile(slot); }
+
+// Game and player statistics for the scene's progress sign and leaderboard.
+//  0 gameaction (0 = idle)  1 gameepisode  2 gamemap  3 gameskill  4 leveltime (tics)  5 usergame
+//  6 health  7 armorpoints  8 killcount  9 itemcount  10 secretcount  11 totalkills  12 totalitems  13 totalsecret
+// Intermission (valid while gamestate == GS_INTERMISSION, filled by G_DoCompleted for the level just finished):
+//  20 wminfo.epsd  21 wminfo.last (map - 1)  22 wminfo.next  23 maxkills  24 maxitems  25 maxsecret  26 partime
+//  27 kills  28 items  29 secrets  30 time (tics)
+EMSCRIPTEN_KEEPALIVE int dg_dcl_stat(int what)
+{
+    player_t *p = &players[consoleplayer];
+    switch (what)
+    {
+        case 0: return (int)gameaction;
+        case 1: return gameepisode;
+        case 2: return gamemap;
+        case 3: return (int)gameskill;
+        case 4: return leveltime;
+        case 5: return usergame ? 1 : 0;
+        case 6: return p->health;
+        case 7: return p->armorpoints;
+        case 8: return p->killcount;
+        case 9: return p->itemcount;
+        case 10: return p->secretcount;
+        case 11: return totalkills;
+        case 12: return totalitems;
+        case 13: return totalsecret;
+        case 20: return wminfo.epsd;
+        case 21: return wminfo.last;
+        case 22: return wminfo.next;
+        case 23: return wminfo.maxkills;
+        case 24: return wminfo.maxitems;
+        case 25: return wminfo.maxsecret;
+        case 26: return wminfo.partime;
+        case 27: return wminfo.plyr[consoleplayer].skills;
+        case 28: return wminfo.plyr[consoleplayer].sitems;
+        case 29: return wminfo.plyr[consoleplayer].ssecret;
+        case 30: return wminfo.plyr[consoleplayer].stime;
+        default: return 0;
+    }
 }

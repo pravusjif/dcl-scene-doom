@@ -6,6 +6,9 @@ export interface DoomModule {
   HEAPU32: Uint32Array
   FS: {
     writeFile(path: string, data: Uint8Array | string): void
+    readFile(path: string): Uint8Array
+    unlink(path: string): void
+    analyzePath(path: string): { exists: boolean }
     mkdir(path: string): void
   }
   _dg_dcl_init(): void
@@ -26,6 +29,16 @@ export interface DoomModule {
   _dg_dcl_record_overflow(): number
   /** 0 viewwindowx 1 viewwindowy 2 scaledviewwidth 3 viewheight 4 detailshift 5 centery 6 menuactive 7 automapactive 8 gamestate 9 numtextures 10 numflats 11 firstspritelump 12 skytexture */
   _dg_dcl_view(what: number): number
+  /** Request a save of slot `slot` (performed by the game loop within the next two tics). */
+  _dg_dcl_save(slot: number): void
+  /** Request a load of slot `slot`; the file must exist in FS at _dg_dcl_save_path(slot). */
+  _dg_dcl_load(slot: number): void
+  /** Test hook: end the current level through the normal exit path (intermission follows). */
+  _dg_dcl_exit_level(): void
+  /** Pointer to the NUL-terminated FS path of a save slot. */
+  _dg_dcl_save_path(slot: number): number
+  /** See dg_dcl_stat in engine/doomgeneric_dcl.c (DoomStat in doom.ts). */
+  _dg_dcl_stat(what: number): number
 }
 
 export interface DoomModuleOptions {

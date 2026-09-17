@@ -44,6 +44,38 @@ export const DoomKey = {
   }
 } as const
 
+/** Indices for DoomSource.stat (dg_dcl_stat). Intermission values describe the level just finished. */
+export const DoomStat = {
+  GAMEACTION: 0,
+  EPISODE: 1,
+  MAP: 2,
+  SKILL: 3,
+  LEVELTIME: 4,
+  USERGAME: 5,
+  HEALTH: 6,
+  ARMOR: 7,
+  KILLS: 8,
+  ITEMS: 9,
+  SECRETS: 10,
+  TOTAL_KILLS: 11,
+  TOTAL_ITEMS: 12,
+  TOTAL_SECRETS: 13,
+  WI_EPISODE: 20,
+  WI_LAST: 21,
+  WI_NEXT: 22,
+  WI_MAX_KILLS: 23,
+  WI_MAX_ITEMS: 24,
+  WI_MAX_SECRETS: 25,
+  WI_PAR: 26,
+  WI_KILLS: 27,
+  WI_ITEMS: 28,
+  WI_SECRETS: 29,
+  WI_TIME: 30
+} as const
+
+/** gamestate_t values (dg_dcl_view(8)). */
+export const GameState = { LEVEL: 0, INTERMISSION: 1, FINALE: 2, DEMOSCREEN: 3 } as const
+
 export class DoomSource implements FrameSource {
   readonly width: number
   readonly height: number
@@ -134,6 +166,49 @@ export class DoomSource implements FrameSource {
     return this.m._dg_dcl_view(what)
   }
 
+  // ---- statistics and savegames ----
+  stat(what: number): number {
+    return this.m._dg_dcl_stat(what)
+  }
+
+  /** Ask the game loop to save `slot`; the file appears at savePath(slot) within two ticks (poll hasSave). */
+  requestSave(slot: number) {
+    this.m._dg_dcl_save(slot)
+  }
+
+  /** Ask the game loop to load `slot` from the module filesystem (write it first with writeSave). */
+  requestLoad(slot: number) {
+    this.m._dg_dcl_load(slot)
+  }
+
+  /** Test hook: finish the current level as if its exit had been used. */
+  exitLevel() {
+    this.m._dg_dcl_exit_level()
+  }
+
+  savePath(slot: number): string {
+    let p = this.m._dg_dcl_save_path(slot)
+    let out = ''
+    for (; this.m.HEAPU8[p] !== 0; p++) out += String.fromCharCode(this.m.HEAPU8[p])
+    return out
+  }
+
+  hasSave(slot: number): boolean {
+    return this.m.FS.analyzePath(this.savePath(slot)).exists
+  }
+
+  readSave(slot: number): Uint8Array | null {
+    return this.hasSave(slot) ? this.m.FS.readFile(this.savePath(slot)) : null
+  }
+
+  writeSave(slot: number, bytes: Uint8Array) {
+    this.m.FS.writeFile(this.savePath(slot), bytes)
+  }
+
+  deleteSave(slot: number) {
+    if (this.hasSave(slot)) this.m.FS.unlink(this.savePath(slot))
+  }
+
   private refreshPalette() {
     // struct color { b, g, r, a } per entry -> PLAYPAL-style RGB triplets
     const h = this.m.HEAPU8
@@ -151,6 +226,26 @@ const B64 = new Uint8Array(128)
 for (let i = 0; i < 64; i++) {
   B64['ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'.charCodeAt(i)] = i
 }
+const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+export function encodeBase64(bytes: Uint8Array): string {
+  let out = ''
+  let i = 0
+  for (; i + 3 <= bytes.length; i += 3) {
+    const n = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2]
+    out += B64_CHARS[n >> 18] + B64_CHARS[(n >> 12) & 63] + B64_CHARS[(n >> 6) & 63] + B64_CHARS[n & 63]
+  }
+  const rem = bytes.length - i
+  if (rem === 1) {
+    const n = bytes[i] << 16
+    out += B64_CHARS[n >> 18] + B64_CHARS[(n >> 12) & 63] + '=='
+  } else if (rem === 2) {
+    const n = (bytes[i] << 16) | (bytes[i + 1] << 8)
+    out += B64_CHARS[n >> 18] + B64_CHARS[(n >> 12) & 63] + B64_CHARS[(n >> 6) & 63] + '='
+  }
+  return out
+}
+
 export function decodeBase64(s: string): Uint8Array {
   let len = s.length
   while (len > 0 && s.charCodeAt(len - 1) === 61) len--

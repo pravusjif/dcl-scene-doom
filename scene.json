@@ -24,8 +24,25 @@
     {
       "name": "cabinet",
       "default": true,
-      "position": { "x": [6, 10], "y": [0, 0], "z": [2, 4] },
-      "cameraTarget": { "x": 8, "y": 1.5, "z": 10 }
+      "position": {
+        "x": [
+          6,
+          10
+        ],
+        "y": [
+          0,
+          0
+        ],
+        "z": [
+          2,
+          4
+        ]
+      },
+      "cameraTarget": {
+        "x": 8,
+        "y": 1.5,
+        "z": 10
+      }
     }
   ],
   "worldConfiguration": {
@@ -34,5 +51,6 @@
   "featureToggles": {
     "voiceChat": "enabled",
     "portableExperiences": "disabled"
-  }
+  },
+  "authoritativeMultiplayer": true
 }

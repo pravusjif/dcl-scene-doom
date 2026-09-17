@@ -88,6 +88,35 @@ inside one `overflow: hidden` UI container that scales up while they slide the o
 revealed in place rather than stretched (four component writes per frame instead of rewriting every cell). The settings panel has a **Leave cabinet** button (hold right-click for a cursor) that
 reverses every step; the engine keeps its state, so the game resumes where it was on the next visit.
 
+### Progress, savegames and the leaderboard: a multiplayer server
+
+**Decision: the `@dcl/sdk@auth-server` multiplayer server keeps progress, savegames and the leaderboard; the
+engine stays on the client.**
+
+The scene runs one bundle on both sides (`src/index.ts` branches on `isServer()`). The headless server
+(`src/server/server.ts`, QuickJS, no DOOM) validates and scores what clients report and persists it in server
+storage; the client (`src/client/`) plays and reports.
+
+- **Leaderboard data comes from the engine, not from savegames.** `dg_dcl_stat` exposes the live player stats and
+  the intermission struct (`wminfo`: kills, items, secrets, time, par of the level just finished). The client
+  detects the level -> intermission transition and sends `levelDone`; the server checks the bounds (episode 1,
+  maps 1-9, counts within the level totals), scores it (1000 per level + 10/kill + 2/item + 50/secret + 5 per
+  second under par, best result per level counts), writes the player's `Progress` JSON to per-player storage and
+  the top 10 to scene storage, and republishes a synced `Leaderboard` component. Trust-based: the server cannot
+  replay the game, so the checks are sanity bounds, not anti-cheat.
+- **Savegames are opaque blobs.** `dg_dcl_save(slot)` / `dg_dcl_load(slot)` drive the engine's own save/load
+  (Chocolate-Doom portable format, ~25 KB at the start of E1M1, vanilla cap 180 KB) through the module
+  filesystem; the scene reads the bytes back, base64-encodes them and streams them to the server in 8 KB chunks
+  (room messages are dropped above ~13 KB), one per tick so the loading bar next to the Save/Load buttons means
+  something. The server stores the blob plus a small parsed summary (`SaveMeta`: map, skill, health, counts,
+  read from fixed header offsets) under the player. Loading streams it back, writes it into the module
+  filesystem and calls the engine's load.
+- **Signs.** Two in-world `TextShape` panels flank the cabinet: the viewer's own progress (plus live level stats
+  while playing) and the global top 10, always ten rows (dashes for empty ranks). A **Delete record** button
+  in the settings panel (with an in-place confirmation) wipes the player's progress, savegame and leaderboard row. A server heartbeat component gates everything: with no heartbeat
+  observed for 6 s the signs say "server offline" and the Save/Load buttons disable.
+- `Storage.get` on a missing key logs a 404 in the server log; harmless, first run only.
+
 ### Display, step 1: what can the client actually draw per frame?
 
 Before building anything, the benchmark twin mutated every candidate primitive every scene
@@ -254,6 +283,9 @@ If Homebrew's post-install did not write an Emscripten config, point `EM_CONFIG`
 | `src/fbdisplay.ts`, `src/framebuffer.ts` | pixel-grid presenter + `FrameSource` contract |
 | `src/index.ts`, `src/settings.ts`, `src/ui.tsx`, `src/layout.ts` | game system, settings, settings panel + controls strip, screen layout |
 | `src/cabinet.ts` | the arcade cabinet: model, "Play DOOM" pointer event, enter/leave (avatar freeze, virtual camera) |
+| `src/client/game.ts`, `src/client/net.ts`, `src/client/signs.ts`, `src/client/state.ts` | client: game system + save/load orchestration, room messages + chunked transfers, in-world signs, shared client state |
+| `src/server/server.ts` | multiplayer server: validation, scoring, storage, leaderboard |
+| `src/shared/` | messages, synced components, progress/scoring/savegame-summary helpers |
 | `assets/doom/` | generated atlases and flats |
 | `assets/cabinet/` | arcade cabinet GLB and its textures |
 
